@@ -189,11 +189,16 @@ function trabis_GetNameservers($params, $detail = null)
 
 function trabis_SaveNameservers($params)
 {
-    if($params["ns1"] == "") $nameserver1 = "empty";
-    if($params["ns2"] == "") $nameserver2 = "empty";
-    if($params["ns3"] == "") $nameserver3 = "empty";
-    if($params["ns4"] == "") $nameserver4 = "empty";
-    if($params["ns5"] == "") $nameserver5 = "empty";
+    $nameserver1 = $params["ns1"];
+    if($nameserver1 == "") $nameserver1 = "empty";
+    $nameserver2 = $params["ns2"];
+    if($nameserver2 == "") $nameserver2 = "empty";
+    $nameserver3 = $params["ns3"];
+    if($nameserver3 == "") $nameserver3 = "empty";
+    $nameserver4 = $params["ns4"];
+    if($nameserver4 == "") $nameserver4 = "empty";
+    $nameserver5 = $params["ns5"];
+    if($nameserver5 == "") $nameserver5 = "empty";
 
     $post = array(
         'api_key' => api_key,
