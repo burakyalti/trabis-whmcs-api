@@ -7,3 +7,14 @@ Bu modül .TR alan adı bayilerimizin, WHMCS araclığı ile Trabis API sine ist
 - Template dosyası firmaya özel olduğu için paylaşılmamıştır.
 - Trabis WHMCS API si, https://trabis.netdirekt.com.tr/api_doc/ adresindeki döküman baz alınarak hazırlanmıştır. İlgili API dökümanına göre kendi geliştirmenizi yapabilirsiniz.
 - Alan adı bayiliğiniz yoksa, Netdirekt Müşteri Hizmetlerini (0850 200 88 99) arayarak bilgi talep edebilirsiniz.
+
+27.01.2023
+
+Alan adı transferine imkan veren aşağıdaki servisler, API ye eklenmiştir. WHMCS modülünüzü bu fonksiyonlara göre güncelleyebilirsiniz.
+
+lockStatus
+lockTransfer
+unlockTransfer
+getAuthCode
+demandTransfer
+approveTransfer
