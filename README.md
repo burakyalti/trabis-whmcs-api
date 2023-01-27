@@ -12,9 +12,9 @@ Bu modül .TR alan adı bayilerimizin, WHMCS araclığı ile Trabis API sine ist
 
 Alan adı transferine imkan veren aşağıdaki servisler, API ye eklenmiştir. WHMCS modülünüzü bu fonksiyonlara göre güncelleyebilirsiniz.
 
-lockStatus
-lockTransfer
-unlockTransfer
-getAuthCode
-demandTransfer
-approveTransfer
+- lockStatus
+- lockTransfer
+- unlockTransfer
+- getAuthCode
+- demandTransfer
+- approveTransfer
