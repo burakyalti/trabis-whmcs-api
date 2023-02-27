@@ -18,3 +18,9 @@ Alan adı transferine imkan veren aşağıdaki servisler, API ye eklenmiştir. W
 - getAuthCode
 - demandTransfer
 - approveTransfer
+
+27.02.2023
+
+- get_contact ve modify_contact fonksiyonlarına, admin, ödeme ve teknik sorumlu bilgileri eklenmiştir.
+- register_domain fonksiyonuna opsiyonel olarak admin, ödeme ve teknik sorumlu gönderme opsiyonu eklenmiştir.
+- setPrivacy fonksiyonu ile whois gizlemesini açma/kapatma özelliği eklenmiştir.
