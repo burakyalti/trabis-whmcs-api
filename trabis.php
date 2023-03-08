@@ -56,6 +56,7 @@ function trabis_RegisterDomain($params) {
         $type = '2';
         $client = new WHMCS\Client($params["userid"]);
         $details = $client->getDetails($contactid);
+        $post['name'] = "{$params["firstname"]} {$params["lastname"]}"; //Yetkili Kişi
         $organization = $details['companyname'];
         $post['organization'] = $organization;
         $post['taxOffice'] = $params["customfields2"];
