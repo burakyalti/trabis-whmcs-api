@@ -1,17 +1,18 @@
-﻿<?php 
-//Netdirekt-Trabis WHMCS API v0.1
-define('api_key', '');
+<?php
+//Netdirekt-Trabis WHMCS API v0.3
+define('api_key', '*************');
 
-function trabis_RegisterDomain($params) {
-  
+function trabis_RegisterDomain($params)
+{
+
     $phone = $params['phonenumber'];
     $phoneLength = strlen($phone);
-    if($phoneLength == '11' && substr($phone,0,1) == '0'){
-        $phone = '9'.$phone;
-    }elseif($phoneLength == '13' && substr($phone,0,2) == '+9'){
+    if ($phoneLength == '11' && substr($phone, 0, 1) == '0') {
+        $phone = '9' . $phone;
+    } elseif ($phoneLength == '13' && substr($phone, 0, 2) == '+9') {
         $phone = substr($phone, 1);
     }
-    $fixedPhone = substr($phone,0,2).'-'.substr($phone,2,3).'-'.substr($phone,5,7);
+    $fixedPhone = substr($phone, 0, 2) . '-' . substr($phone, 2, 3) . '-' . substr($phone, 5, 7);
 
     $nameserver1 = $params["ns1"];
     $nameserver2 = $params["ns2"];
@@ -19,7 +20,7 @@ function trabis_RegisterDomain($params) {
     $nameserver4 = $params["ns4"];
     $nameserver5 = $params["ns5"];
 
-    if(($nameserver1 == "" || $nameserver2 == "")) {      
+    if (($nameserver1 == "" || $nameserver2 == "")) {
         $nameserver1 = "izm.netdirekt.com.tr";
         $nameserver2 = "ist.netdirekt.com.tr";
         $nameserver3 = "frk.netdirekt.com.tr";
@@ -48,16 +49,16 @@ function trabis_RegisterDomain($params) {
     );
 
     $hizmet_turu = $params['customfields5'];
-    if($hizmet_turu == 'Bireysel'){
+    if ($hizmet_turu == 'Bireysel') {
         $type = '1';
         $post['name'] = "{$params["firstname"]} {$params["lastname"]}";
         $post['citizenId'] = $params["customfields4"];
-    } elseif ($hizmet_turu == 'Kurumsal'){
+    } elseif ($hizmet_turu == 'Kurumsal') {
         $type = '2';
         $client = new WHMCS\Client($params["userid"]);
         $details = $client->getDetails($contactid);
-        $post['name'] = "{$params["firstname"]} {$params["lastname"]}"; //Yetkili Kişi
         $organization = $details['companyname'];
+        $post['name'] = "{$params["firstname"]} {$params["lastname"]}"; //Yetkili Kişi
         $post['organization'] = $organization;
         $post['taxOffice'] = $params["customfields2"];
         $post['taxNumber'] = $params["customfields3"];
@@ -75,27 +76,31 @@ function trabis_RegisterDomain($params) {
     $result = curl_exec($ch);
     curl_close($ch);
     $cities = json_decode($result, true);
-    
-    foreach($cities['cities'] as $city){
-        if($params['city'] == $city['like']){
+
+    foreach ($cities['cities'] as $city) {
+        if ($params['city'] == $city['like']) {
             $cityId = $city['id'];
         }
     }
     $post['cityId'] = $cityId;
 
     $ch = curl_init();
-    curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
+    if (substr_count($params['domainname'], '.')  == 1) {
+        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain_gbs");
+    } else {
+        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
+    }
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
     $json = json_decode($result, true);
 
-    if($json["msg"] == "NEEDS_MANUAL_REGISTRATION_WITH_DOCUMENTS"){
+    if ($json["msg"] == "NEEDS_MANUAL_REGISTRATION_WITH_DOCUMENTS") {
         $array = array(
             'date' => date('Y-m-d'),
             'title' => ".TR (belgeli) alan adı siparişi gelmiştir.",
-            'description' => "" .$params['domainname'] . " alan adı için lütfen gerekli belgeler ile trabis panel üzerinden başvuru gerçekleştiriniz.",
+            'description' => "" . $params['domainname'] . " alan adı için lütfen gerekli belgeler ile trabis panel üzerinden başvuru gerçekleştiriniz.",
             'admin' => '',
             'status' => 'Pending',
             'duedate' => date('Y-m-d', mktime(date('h'), date('i'), date('s'), date('m'), date('d'), date('Y')))
@@ -106,24 +111,24 @@ function trabis_RegisterDomain($params) {
     $array = array(
         'date' => date('Y-m-d'),
         'title' => ".TR Alan adı otomatik kayıt edilemedi",
-        'description' => "" .$params['domainname'] . " alan adı kaydı sırasında ".$json["msg"]." hatası alınmıştır. Lütfen hata mesajına göre gerekli aksiyonu alınız.",
+        'description' => "" . $params['domainname'] . " alan adı kaydı sırasında " . $json["msg"] . " hatası alınmıştır. Lütfen hata mesajına göre gerekli aksiyonu alınız.",
         'admin' => '',
         'status' => 'Pending',
         'duedate' => date('Y-m-d', mktime(date('h'), date('i'), date('s'), date('m'), date('d'), date('Y')))
     );
-    if($json["status"] == '1'){
+    if ($json["status"] == '1') {
         return success;
-    } else if ($json["status"] == "0"){
+    } else if ($json["status"] == "0") {
         insert_query('tbltodolist', $array);
         return array("error" => $json["msg"]);
     } else {
         insert_query('tbltodolist', $array);
         return array("error" => "error");
     }
-
 }
 
- function trabis_ReNewDomain($params) {
+function trabis_ReNewDomain($params)
+{
     $post = array(
         'api_key' => api_key,
         'domain' => $params['domainname'],
@@ -141,15 +146,15 @@ function trabis_RegisterDomain($params) {
     $array = array(
         'date' => date('Y-m-d'),
         'title' => ".TR Alan adı otomatik kayıt edilemedi",
-        'description' => "" .$params['domainname'] . " alan adı yenilemesinde".$json["msg"]." hatası alınmıştır. Lütfen hata mesajına göre gerekli aksiyonu alınız. Lütfen alan adını yenilemekte acele etmeyiniz. Expire date'i doğru bir şekilde sorgulayıp, yenilenmediyse işlemlere devam ediniz.",
+        'description' => "" . $params['domainname'] . " alan adı yenilemesinde" . $json["msg"] . " hatası alınmıştır. Lütfen hata mesajına göre gerekli aksiyonu alınız. Lütfen alan adını yenilemekte acele etmeyiniz. Expire date'i doğru bir şekilde sorgulayıp, yenilenmediyse işlemlere devam ediniz.",
         'admin' => '',
         'status' => 'Pending',
         'duedate' => date('Y-m-d', mktime(date('h'), date('i'), date('s'), date('m'), date('d'), date('Y')))
     );
-    if($json["status"] == '1'){
+    if ($json["status"] == '1') {
         return success;
-    } else if ($json["status"] == "0"){
-      
+    } else if ($json["status"] == "0") {
+
         insert_query('tbltodolist', $array);
         return array("error" => $json["msg"]);
     } else {
@@ -173,15 +178,13 @@ function trabis_GetNameservers($params, $detail = null)
     $json = json_decode($result, true);
 
     $values = array();
-    foreach($json["nameservers"] as $key => $nameServer)
-    {
+    foreach ($json["nameservers"] as $key => $nameServer) {
         $key++;
-        if($nameServer["nsType"] == "other")
-        {
+        if ($nameServer["nsType"] == "other") {
             $values["ns" . $key] = $nameServer["nsName"];
         }
     }
-    if($detail == '1'){
+    if ($detail == '1') {
         return $json;
     } else {
         return $values;
@@ -191,15 +194,15 @@ function trabis_GetNameservers($params, $detail = null)
 function trabis_SaveNameservers($params)
 {
     $nameserver1 = $params["ns1"];
-    if($nameserver1 == "") $nameserver1 = "empty";
+    if ($nameserver1 == "") $nameserver1 = "empty";
     $nameserver2 = $params["ns2"];
-    if($nameserver2 == "") $nameserver2 = "empty";
+    if ($nameserver2 == "") $nameserver2 = "empty";
     $nameserver3 = $params["ns3"];
-    if($nameserver3 == "") $nameserver3 = "empty";
+    if ($nameserver3 == "") $nameserver3 = "empty";
     $nameserver4 = $params["ns4"];
-    if($nameserver4 == "") $nameserver4 = "empty";
+    if ($nameserver4 == "") $nameserver4 = "empty";
     $nameserver5 = $params["ns5"];
-    if($nameserver5 == "") $nameserver5 = "empty";
+    if ($nameserver5 == "") $nameserver5 = "empty";
 
     $post = array(
         'api_key' => api_key,
@@ -221,7 +224,7 @@ function trabis_SaveNameservers($params)
     curl_close($ch);
     $json = json_decode($result, true);
 
-    if($json["status"] == "0") return array("error" => $json["msg"]);
+    if ($json["status"] == "0") return array("error" => $json["msg"]);
 
     return "success";
 }
@@ -243,8 +246,8 @@ function trabis_RegisterNameserver($params)
     $result = curl_exec($ch);
     curl_close($ch);
     $json = json_decode($result, true);
-    
-    if($json["status"] == "0") return array("error" => $json["msg"]);
+
+    if ($json["status"] == "0") return array("error" => $json["msg"]);
 
     return "success";
 }
@@ -260,8 +263,8 @@ function trabis_DeleteNameserver($params)
             array("nsName" => "ist.ntdirekt.com.tr", "nsIP" => null),
             array("nsName" => "frk.ntdirekt.com.tr", "nsIP" => null),
             array("nsName" => "ams.ntdirekt.com.tr", "nsIP" => null)
-            ),
-        );
+        ),
+    );
 
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/rm_child_ns_v2");
@@ -271,12 +274,29 @@ function trabis_DeleteNameserver($params)
     curl_close($ch);
     $json = json_decode($result, true);
 
-    if($json["status"] == '1'){
+    if ($json["status"] == '1') {
         return success;
-    } else if ($json["status"] == "0"){
+    } else if ($json["status"] == "0") {
         return array("error" => $json["msg"]);
     } else {
         return array("error" => "error");
     }
+
+    function trabis_GetTrAuthCode($params)
+    {
+        $post = [
+            'api_key' => api_key,
+            'domain' => $params["domainname"]
+        ];
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/getTrAuthCode");
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+        $result = curl_exec($ch);
+        curl_close($ch);
+        $json = json_decode($result, true);
+
+
+        return $json;
+    }
 }
-?>
