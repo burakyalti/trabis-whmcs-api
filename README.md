@@ -24,3 +24,12 @@ Alan adı transferine imkan veren aşağıdaki servisler, API ye eklenmiştir. W
 - get_contact ve modify_contact fonksiyonlarına, admin, ödeme ve teknik sorumlu bilgileri eklenmiştir.
 - register_domain fonksiyonuna opsiyonel olarak admin, ödeme ve teknik sorumlu gönderme opsiyonu eklenmiştir.
 - setPrivacy fonksiyonu ile whois gizlemesini açma/kapatma özelliği eklenmiştir.
+
+12.03.2024
+
+- trabis_GetTrAuthCode fonksiyonu ile 25.08.2023 ten önce kayıt edilen alan adları için, a.tr transfer kodu alınabilmesi sağlandı
+
+21.05.2024
+
+- trabis_RegisterDomain fonksiyonuna a.tr alan adları gönderilir ise, trabis geçici başvuru sistemine kayıt eklenmesi için düzenleme yapıldı.
+
