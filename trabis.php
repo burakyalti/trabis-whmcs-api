@@ -1,6 +1,47 @@
 <?php
-//Netdirekt-Trabis WHMCS API v0.3
+//Netdirekt-Trabis WHMCS API v0.4
 define('api_key', '*************');
+
+/**
+ * Trabis API çağrılarını tblapilog tablosuna kaydeder
+ *
+ * @param string $action API aksiyonu (register_domain, renew_domain, get_ns, vb.)
+ * @param array $request Gönderilen request verileri
+ * @param array|string $response API'den dönen yanıt
+ * @param array $params WHMCS parametreleri (domain bilgisi için)
+ * @return void
+ */
+function trabis_LogApiCall($action, $request, $response, $params = [])
+{
+    // API key'i loglardan gizle
+    $logRequest = $request;
+    if (isset($logRequest['api_key'])) {
+        $logRequest['api_key'] = '***HIDDEN***';
+    }
+
+    // Response'u array'e çevir
+    if (is_string($response)) {
+        $responseData = json_decode($response, true);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            $responseData = ['raw_response' => $response];
+        }
+    } else {
+        $responseData = $response;
+    }
+
+    // Domain adını al
+    $domainName = isset($params['domainname']) ? $params['domainname'] : (isset($request['domain']) ? $request['domain'] : 'N/A');
+
+    // WHMCS logModuleCall fonksiyonunu kullan (tblapilog'a yazar)
+    logModuleCall(
+        'trabis',                           // module
+        $action,                            // action
+        $logRequest,                        // request (array olarak)
+        $responseData,                      // response (array olarak)
+        $responseData,                      // processed response
+        []                                  // replace vars (gizlenecek değerler)
+    );
+}
 
 function trabis_RegisterDomain($params)
 {
@@ -75,6 +116,7 @@ function trabis_RegisterDomain($params)
     curl_setopt($ch, CURLOPT_POSTFIELDS, $get_city);
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('get_cities', $get_city, $result, $params);
     $cities = json_decode($result, true);
 
     foreach ($cities['cities'] as $city) {
@@ -85,15 +127,17 @@ function trabis_RegisterDomain($params)
     $post['cityId'] = $cityId;
 
     $ch = curl_init();
-    if (substr_count($params['domainname'], '.')  == 1) {
-        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain_gbs");
-    } else {
-        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
-    }
+    // if (substr_count($params['domainname'], '.')  == 1) {
+    //     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain_gbs");
+    // } else {
+    //     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
+    // }
+    curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('register_domain', $post, $result, $params);
     $json = json_decode($result, true);
 
     if ($json["msg"] == "NEEDS_MANUAL_REGISTRATION_WITH_DOCUMENTS") {
@@ -141,6 +185,7 @@ function trabis_ReNewDomain($params)
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('renew_domain', $post, $result, $params);
     $json = json_decode($result, true);
 
     $array = array(
@@ -175,6 +220,7 @@ function trabis_GetNameservers($params, $detail = null)
     curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('get_ns', $post, $result, $params);
     $json = json_decode($result, true);
 
     $values = array();
@@ -222,6 +268,7 @@ function trabis_SaveNameservers($params)
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('modify_ns', $post, $result, $params);
     $json = json_decode($result, true);
 
     if ($json["status"] == "0") return array("error" => $json["msg"]);
@@ -245,6 +292,7 @@ function trabis_RegisterNameserver($params)
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('add_child_ns', $post, $result, $params);
     $json = json_decode($result, true);
 
     if ($json["status"] == "0") return array("error" => $json["msg"]);
@@ -272,6 +320,7 @@ function trabis_DeleteNameserver($params)
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
     $result = curl_exec($ch);
     curl_close($ch);
+    trabis_LogApiCall('rm_child_ns_v2', $post, $result, $params);
     $json = json_decode($result, true);
 
     if ($json["status"] == '1') {
@@ -281,22 +330,22 @@ function trabis_DeleteNameserver($params)
     } else {
         return array("error" => "error");
     }
+}
 
-    function trabis_GetTrAuthCode($params)
-    {
-        $post = [
-            'api_key' => api_key,
-            'domain' => $params["domainname"]
-        ];
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/getTrAuthCode");
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
-        $result = curl_exec($ch);
-        curl_close($ch);
-        $json = json_decode($result, true);
+function trabis_GetTrAuthCode($params)
+{
+    $post = [
+        'api_key' => api_key,
+        'domain' => $params["domainname"]
+    ];
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/getTrAuthCode");
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $post);
+    $result = curl_exec($ch);
+    curl_close($ch);
+    trabis_LogApiCall('getTrAuthCode', $post, $result, $params);
+    $json = json_decode($result, true);
 
-
-        return $json;
-    }
+    return $json;
 }
