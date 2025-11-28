@@ -33,3 +33,6 @@ Alan adı transferine imkan veren aşağıdaki servisler, API ye eklenmiştir. W
 
 - trabis_RegisterDomain fonksiyonuna a.tr alan adları gönderilir ise, trabis geçici başvuru sistemine kayıt eklenmesi için düzenleme yapıldı.
 
+28.11.2024
+
+- Tüm API istekleri ve cevapları tblmodulelog tablosuna yazılarak systemmodulelog.php üzerinden görüntülenmesi sağlandı.
