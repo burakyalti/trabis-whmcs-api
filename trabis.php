@@ -1,5 +1,5 @@
 <?php
-//Netdirekt-Trabis WHMCS API v0.5
+//Netdirekt-Trabis WHMCS API v0.6
 define('api_key', '*************');
 
 /**
@@ -81,7 +81,7 @@ function trabis_LogApiCall($action, $request, $response, $params = [])
         $logRequest,                        // request (array olarak)
         $responseData,                      // response (array olarak)
         $responseData,                      // processed response
-        []                                  // replace vars (gizlenecek değerler)
+        [api_key]                           // replace vars: anahtar istek VE yanıtın her yerinde maskelenir
     );
 }
 
@@ -294,6 +294,11 @@ function trabis_RegisterDomain($params)
     $post['cityId'] = $cityId;
 
     $ch = curl_init();
+    // if (substr_count($params['domainname'], '.')  == 1) {
+    //     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain_gbs");
+    // } else {
+    //     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
+    // }
     curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/register_domain");
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
@@ -323,7 +328,7 @@ function trabis_RegisterDomain($params)
         'duedate' => date('Y-m-d', mktime(date('h'), date('i'), date('s'), date('m'), date('d'), date('Y')))
     );
     if ($json["status"] == '1') {
-        return "success"; 
+        return "success";
     } else if ($json["status"] == "0") {
         insert_query('tbltodolist', $array);
         return array("error" => $json["msg"]);
@@ -359,7 +364,7 @@ function trabis_ReNewDomain($params)
         'duedate' => date('Y-m-d', mktime(date('h'), date('i'), date('s'), date('m'), date('d'), date('Y')))
     );
     if ($json["status"] == '1') {
-        return "success"; 
+        return "success";
     } else if ($json["status"] == "0") {
 
         insert_query('tbltodolist', $array);
@@ -486,7 +491,7 @@ function trabis_DeleteNameserver($params)
     $json = json_decode($result, true);
 
     if ($json["status"] == '1') {
-        return "success"; 
+        return "success";
     } else if ($json["status"] == "0") {
         return array("error" => $json["msg"]);
     } else {
@@ -510,4 +515,165 @@ function trabis_GetTrAuthCode($params)
     $json = json_decode($result, true);
 
     return $json;
+}
+
+/**
+ * Netdirekt Trabis API'sine POST isteği gönderir ve JSON yanıtını dizi olarak döndürür.
+ * Yanıt alınamazsa status=0, msg=API_UNREACHABLE döner.
+ *
+ * @param string $action API servisi (get_ds_records, add_ds_record, ...)
+ * @param array $post Gönderilecek alanlar (api_key otomatik eklenir)
+ * @param array $params WHMCS parametreleri (loglama için)
+ * @return array
+ */
+function trabis_ApiPost($action, $post, $params)
+{
+    $post = array_merge(['api_key' => api_key], $post);
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, "https://trabis.netdirekt.com.tr/api/" . $action);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($post));
+    $result = curl_exec($ch);
+    curl_close($ch);
+    trabis_LogApiCall($action, $post, $result, $params);
+    $json = json_decode((string) $result, true);
+    return is_array($json) ? $json : ['status' => '0', 'msg' => 'API_UNREACHABLE'];
+}
+
+/**
+ * Müşteri panelinde alan adı sayfasına "DNSSEC Yönetimi" bağlantısı ekler.
+ */
+function trabis_ClientAreaCustomButtonArray()
+{
+    return [
+        'DNSSEC Yönetimi' => 'dnssec',
+    ];
+}
+
+/**
+ * DNS sağlayıcısının verdiği DS satırını alanlarına ayırır.
+ * Kabul edilen biçimler: "2371 13 2 59D2..." ve "alanadi.com.tr. 3600 IN DS 2371 13 2 59D2...".
+ * Digest boşluklarla bölünmüş olabilir. Satır okunamazsa null döner.
+ *
+ * @param string $satir
+ * @return array|null
+ */
+function trabis_DsSatiriniAyir($satir)
+{
+    if (preg_match('/(?:^|\s)(\d{1,5})\s+(\d{1,3})\s+(\d)\s+([0-9A-Fa-f][0-9A-Fa-f\s]*)$/', trim($satir), $m)) {
+        return [
+            'key_tag' => $m[1],
+            'alg' => $m[2],
+            'digest_type' => $m[3],
+            'digest' => preg_replace('/\s+/', '', $m[4]),
+        ];
+    }
+    return null;
+}
+
+/**
+ * Trabis API hata kodunu müşteriye gösterilecek metne çevirir.
+ *
+ * @param array $sonuc API yanıtı
+ * @return string
+ */
+function trabis_DnssecHataMetni($sonuc)
+{
+    $msg = isset($sonuc['msg']) ? (string) $sonuc['msg'] : '';
+    $metinler = [
+        'DS_RECORD_VALIDATION_FAILED' => 'DS kaydı Trabis tarafından doğrulanamadı. Alan adınızın DNSKEY kaydının yayında olduğundan ve girdiğiniz değerlerin doğru olduğundan emin olun.',
+        'MISSING_OR_INVALID_PARAMETERS' => 'Eksik ya da hatalı bilgi.',
+        'DOMAIN_NOT_FOUND' => 'Alan adı bayi hesabında bulunamadı.',
+        'DNSSEC_CHECK_UNAVAILABLE' => 'DNSSEC kontrol servisine şu anda ulaşılamıyor. Lütfen daha sonra tekrar deneyin.',
+        'API_UNREACHABLE' => 'Trabis API\'sine ulaşılamadı. Lütfen daha sonra tekrar deneyin.',
+    ];
+    $metin = isset($metinler[$msg]) ? $metinler[$msg] : 'İşlem tamamlanamadı: ' . $msg;
+    if (!empty($sonuc['detail']) && is_string($sonuc['detail'])) {
+        $metin .= ' (' . $sonuc['detail'] . ')';
+    }
+    return $metin;
+}
+
+/**
+ * DNSSEC Yönetimi sayfası: DS kayıtlarını listeler, ekler, siler ve DNSSEC zincirini kontrol eder.
+ * Şablon: dnssec.tpl (bu dosyayla aynı klasörde, modules/registrars/trabis/).
+ *
+ * @param array $params WHMCS parametreleri
+ * @return array
+ */
+function trabis_dnssec($params)
+{
+    $domain = trabis_getDomainName($params);
+    $domainId = (int) $params['domainid'];
+    $mesaj = '';
+    $hata = '';
+    $kontrol = null;
+
+    $islem = (isset($_POST['dnssec_islem']) && is_string($_POST['dnssec_islem'])) ? $_POST['dnssec_islem'] : '';
+    if ($islem !== '' && function_exists('check_token')) {
+        check_token('WHMCS.default');
+    }
+
+    if ($islem === 'ekle') {
+        $ds = [];
+        foreach (['key_tag', 'alg', 'digest_type', 'digest'] as $alan) {
+            $ds[$alan] = (isset($_POST[$alan]) && is_string($_POST[$alan])) ? trim($_POST[$alan]) : '';
+        }
+        $satir = (isset($_POST['ds_satiri']) && is_string($_POST['ds_satiri'])) ? trim($_POST['ds_satiri']) : '';
+        if ($satir !== '') {
+            $ds = trabis_DsSatiriniAyir($satir);
+            if ($ds === null) {
+                $hata = 'DS satırı okunamadı. Beklenen biçim: Key Tag, Algoritma, Digest Type ve Digest (örnek: 2371 13 2 59D29AD9...).';
+            }
+        }
+        if ($hata === '') {
+            $sonuc = trabis_ApiPost('add_ds_record', array_merge(['domain' => $domain], $ds), $params);
+            if (isset($sonuc['status']) && $sonuc['status'] == '1') {
+                $mesaj = 'DS kaydı eklendi (Key Tag ' . $sonuc['key_tag'] . '). Kaydın .tr bölgesinde yayınlanması birkaç saat sürebilir.';
+            } else {
+                $hata = trabis_DnssecHataMetni($sonuc);
+            }
+        }
+    } elseif ($islem === 'sil') {
+        $keyTag = (isset($_POST['key_tag']) && is_string($_POST['key_tag'])) ? $_POST['key_tag'] : '';
+        $sonuc = trabis_ApiPost('delete_ds_record', ['domain' => $domain, 'key_tag' => $keyTag], $params);
+        if (isset($sonuc['status']) && $sonuc['status'] == '1') {
+            $mesaj = 'DS kaydı silindi (Key Tag ' . $sonuc['key_tag'] . '). Değişikliğin çözümleyicilere yansıması birkaç saat sürebilir.';
+        } else {
+            $hata = trabis_DnssecHataMetni($sonuc);
+        }
+    } elseif ($islem === 'kontrol') {
+        $sonuc = trabis_ApiPost('check_dnssec', ['domain' => $domain], $params);
+        if (isset($sonuc['status']) && $sonuc['status'] == '1') {
+            $kontrol = $sonuc;
+        } else {
+            $hata = trabis_DnssecHataMetni($sonuc);
+        }
+    }
+
+    $kayitlar = [];
+    $liste = trabis_ApiPost('get_ds_records', ['domain' => $domain], $params);
+    if (isset($liste['status']) && $liste['status'] == '1' && isset($liste['ds_records']) && is_array($liste['ds_records'])) {
+        $kayitlar = $liste['ds_records'];
+    } elseif ($hata === '') {
+        $hata = 'DS kayıtları alınamadı. ' . trabis_DnssecHataMetni($liste);
+    }
+
+    return [
+        'templatefile' => 'dnssec',
+        'requirelogin' => true,
+        'breadcrumb' => [
+            'clientarea.php?action=domaindetails&id=' . $domainId . '&modop=custom&a=dnssec' => 'DNSSEC Yönetimi',
+        ],
+        'vars' => [
+            'domainid' => $domainId,
+            'alanadi' => $domain,
+            'kayitlar' => $kayitlar,
+            'mesaj' => $mesaj,
+            'hata' => $hata,
+            'kontrol' => $kontrol,
+        ],
+    ];
 }
